@@ -11,10 +11,8 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Gymtracker"
+        android:name=".UebungMainApplication"
         tools:targetApi="31">
-        <activity
-            android:name=".DetatailedActivity"
-            android:exported="false" />
         <activity
             android:name=".MainActivity"
             android:exported="true">

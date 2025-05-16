@@ -14,11 +14,11 @@
     <item
         android:id="@+id/ID_hinzufuegen"
         android:icon="@drawable/baseline_add_24"
-        android:title="Hinzufügen"
+        android:title="Hinz. / Entf."
         />
     <item
         android:id="@+id/ID_mehr"
-        android:icon="@drawable/baseline_more_horiz_24"
-        android:title="Mehr"
+        android:icon="@drawable/baseline_history_24"
+        android:title="Historik"
         />
 </menu>

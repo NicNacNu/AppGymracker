@@ -1,64 +1,132 @@
 package com.example.gymtracker;
 
+import android.app.DatePickerDialog;
 import android.os.Bundle;
-
-import androidx.fragment.app.Fragment;
-
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.DatePicker;
+import android.widget.ListView;
+import android.widget.Toast;
 
-/**
- * A simple {@link Fragment} subclass.
- * Use the {@link MehrFragment#newInstance} factory method to
- * create an instance of this fragment.
- */
+import androidx.fragment.app.Fragment;
+
+import com.example.gymtracker.db.TagUebungsCrossRefDAO;
+
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 public class MehrFragment extends Fragment {
 
-    // TODO: Rename parameter arguments, choose names that match
-    // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-    private static final String ARG_PARAM1 = "param1";
-    private static final String ARG_PARAM2 = "param2";
+    private Button openDatePickerButton;
+    private ListView listViewTrainingsData;  // Verwende eine ListView statt ExpandableListView
+    private TagUebungsCrossRefDAO tagUebungsCrossRefDAO;
 
-    // TODO: Rename and change types of parameters
-    private String mParam1;
-    private String mParam2;
+    private int selectedYear, selectedMonth, selectedDay;
 
-    public MehrFragment() {
-        // Required empty public constructor
-    }
-
-    /**
-     * Use this factory method to create a new instance of
-     * this fragment using the provided parameters.
-     *
-     * @param param1 Parameter 1.
-     * @param param2 Parameter 2.
-     * @return A new instance of fragment MehrFragment.
-     */
-    // TODO: Rename and change types and number of parameters
-    public static MehrFragment newInstance(String param1, String param2) {
-        MehrFragment fragment = new MehrFragment();
-        Bundle args = new Bundle();
-        args.putString(ARG_PARAM1, param1);
-        args.putString(ARG_PARAM2, param2);
-        fragment.setArguments(args);
-        return fragment;
-    }
+    private ExecutorService executorService = Executors.newSingleThreadExecutor();
 
     @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        if (getArguments() != null) {
-            mParam1 = getArguments().getString(ARG_PARAM1);
-            mParam2 = getArguments().getString(ARG_PARAM2);
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+        View view = inflater.inflate(R.layout.fragment_mehr, container, false);
+
+        // Initialisierung der UI-Komponenten
+        openDatePickerButton = view.findViewById(R.id.openDatePickerButton);
+        listViewTrainingsData = view.findViewById(R.id.listViewTrainingsData);  // Neue ID für ListView
+
+        // DAO Initialisieren
+        tagUebungsCrossRefDAO = UebungMainApplication.getAppDatabase().getTagUebungsCrossRefDAO();
+
+        // Listener für den Button, der den DatePickerDialog öffnet
+        openDatePickerButton.setOnClickListener(v -> openDatePickerDialog());
+
+        return view;
+    }
+
+    // Methode, um den DatePickerDialog zu öffnen
+    private void openDatePickerDialog() {
+        // Aktuelles Datum holen
+        Calendar calendar = Calendar.getInstance();
+        selectedYear = calendar.get(Calendar.YEAR);
+        selectedMonth = calendar.get(Calendar.MONTH);
+        selectedDay = calendar.get(Calendar.DAY_OF_MONTH);
+
+        // DatePickerDialog erstellen
+        DatePickerDialog datePickerDialog = new DatePickerDialog(
+                getActivity(),
+                (view, year, monthOfYear, dayOfMonth) -> {
+                    // Nach Auswahl eines Datums wird der Wochentag berechnet und Trainingsdaten geladen
+                    selectedYear = year;
+                    selectedMonth = monthOfYear;
+                    selectedDay = dayOfMonth;
+
+                    // Datum im Format yyyy-MM-dd
+                    String datum = String.format("%04d-%02d-%02d", selectedYear, selectedMonth + 1, selectedDay);
+                    loadTrainingsDataForDate(datum);
+                },
+                selectedYear,
+                selectedMonth,
+                selectedDay
+        );
+
+        // Dialog anzeigen
+        datePickerDialog.show();
+    }
+
+    // Methode zum Abrufen der Trainingsdaten und der Übung
+    private void loadTrainingsDataForDate(String datum) {
+        executorService.execute(() -> {
+            // Lade die Daten für das angegebene Datum
+            List<TagUebungsCrossRef> trainingsData = tagUebungsCrossRefDAO.getTrainingsDataForDate(datum);
+
+            // Liste der Übungsnamen und deren IDs
+            Map<Integer, String> uebungsNamenMap = new HashMap<>();
+            for (TagUebungsCrossRef training : trainingsData) {
+                // Hole den Übungsnamen anhand der uebungID
+                String uebungsName = tagUebungsCrossRefDAO.getUebungNameById(training.uebungID);
+                uebungsNamenMap.put(training.uebungID, uebungsName);
+            }
+
+            // Aktualisiere UI im Haupt-Thread
+            getActivity().runOnUiThread(() -> {
+                if (trainingsData != null && !trainingsData.isEmpty()) {
+                    updateListView(trainingsData, uebungsNamenMap);
+                } else {
+                    Toast.makeText(getActivity(), "Keine Trainingsdaten für das ausgewählte Datum", Toast.LENGTH_SHORT).show();
+                }
+            });
+        });
+    }
+
+    // Methode zum Aktualisieren der ListView
+    private void updateListView(List<TagUebungsCrossRef> trainingsData, Map<Integer, String> uebungsNamenMap) {
+        List<String> listItems = new ArrayList<>();
+
+        // Füge alle Trainingsdaten zu einer Liste hinzu
+        for (TagUebungsCrossRef training : trainingsData) {
+            String uebungsName = uebungsNamenMap.get(training.uebungID);
+            String listItem = "Übung: " + uebungsName +
+                    "\nSets: " + training.arbeitsSets +
+                    "\nWiederholungen: " + training.wiederholungen +
+                    "\nMax. Gewicht: " + training.maxGewichtStr + " kg";
+            listItems.add(listItem);
         }
-    }
 
-    @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                             Bundle savedInstanceState) {
-        // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_mehr, container, false);
+        // Adapter für die ListView erstellen
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                getContext(),
+                android.R.layout.simple_list_item_1,  // Einfaches Layout für ListView
+                listItems  // Die Liste der Trainingsdaten
+        );
+
+        // Setze den Adapter für die ListView
+        listViewTrainingsData.setAdapter(adapter);
     }
 }

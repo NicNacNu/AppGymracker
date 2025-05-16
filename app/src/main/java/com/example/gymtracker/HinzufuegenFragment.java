@@ -1,64 +1,97 @@
 package com.example.gymtracker;
 
 import android.os.Bundle;
-
-import androidx.fragment.app.Fragment;
-
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ImageButton;
+import android.widget.Toast;
+import android.widget.Toolbar;
 
-/**
- * A simple {@link Fragment} subclass.
- * Use the {@link HinzufuegenFragment#newInstance} factory method to
- * create an instance of this fragment.
- */
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentTransaction;
+
+import com.example.gymtracker.db.uebungDAO;
+
+import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 public class HinzufuegenFragment extends Fragment {
 
-    // TODO: Rename parameter arguments, choose names that match
-    // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-    private static final String ARG_PARAM1 = "param1";
-    private static final String ARG_PARAM2 = "param2";
+    private ExecutorService executorService = Executors.newSingleThreadExecutor();
 
-    // TODO: Rename and change types of parameters
-    private String mParam1;
-    private String mParam2;
+    private EditText editTextWorkoutName;
+    private EditText editTextPersonalRecord;
+    private Button buttonSaveWorkout;
+
+    uebungDAO exerciseDao = UebungMainApplication.getAppDatabase().getUebungDAO();
 
     public HinzufuegenFragment() {
-        // Required empty public constructor
+        // Leerer Konstruktor
     }
 
-    /**
-     * Use this factory method to create a new instance of
-     * this fragment using the provided parameters.
-     *
-     * @param param1 Parameter 1.
-     * @param param2 Parameter 2.
-     * @return A new instance of fragment HinzufuegenFragment.
-     */
-    // TODO: Rename and change types and number of parameters
-    public static HinzufuegenFragment newInstance(String param1, String param2) {
-        HinzufuegenFragment fragment = new HinzufuegenFragment();
-        Bundle args = new Bundle();
-        args.putString(ARG_PARAM1, param1);
-        args.putString(ARG_PARAM2, param2);
-        fragment.setArguments(args);
-        return fragment;
-    }
-
+    @Nullable
     @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        if (getArguments() != null) {
-            mParam1 = getArguments().getString(ARG_PARAM1);
-            mParam2 = getArguments().getString(ARG_PARAM2);
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+        View view = inflater.inflate(R.layout.fragment_hinzufuegen, container, false);
+
+
+        // Toolbar mit Button
+        androidx.appcompat.widget.Toolbar toolbar = view.findViewById(R.id.toolbar);
+        ImageButton buttonOpenExerciseFragment = view.findViewById(R.id.buttonOpenExerciseFragment);
+        buttonOpenExerciseFragment.setOnClickListener(v -> openExerciseFragment());
+
+        editTextWorkoutName = view.findViewById(R.id.editTextWorkoutName);
+        editTextPersonalRecord = view.findViewById(R.id.editTextPersonalRecord);
+        buttonSaveWorkout = view.findViewById(R.id.buttonSaveWorkout);
+
+        buttonSaveWorkout.setOnClickListener(v -> saveWorkout());
+
+        return view;
+    }
+
+    private void saveWorkout() {
+        String workoutName = editTextWorkoutName.getText().toString().trim();
+        String personalRecord = editTextPersonalRecord.getText().toString().trim();
+
+        if (workoutName.isEmpty() || personalRecord.isEmpty()) {
+            Toast.makeText(getContext(), "Bitte füllen Sie alle Felder aus", Toast.LENGTH_SHORT).show();
+            return;
         }
+
+        // Erstelle eine neue Übung mit einem zufälligen ID
+        String workoutId = UUID.randomUUID().toString();
+        uebung newWorkout = new uebung(workoutName, Integer.parseInt(personalRecord));
+
+        // Aufgaben im Hintergrund ausführen
+        executorService.execute(new Runnable()
+        {
+            @Override
+            public void run() {
+                // Führe die Datenbankoperation im Hintergrund aus
+                exerciseDao.addUebung(newWorkout);
+
+                // Zeige Toast im UI-Thread
+                getActivity().runOnUiThread(() -> {
+                    Toast.makeText(getContext(), "Übung gespeichert! ID: " + workoutId, Toast.LENGTH_SHORT).show();
+                });
+            }
+        });
+    }
+    private void openExerciseFragment() {
+        // Erstellt ein neues Fragment-Objekt
+        ExerciseSelectionFragment exerciseSelectionFragment = new ExerciseSelectionFragment();
+
+        // Öffnet das neue Fragment und ersetzt das aktuelle
+        FragmentTransaction transaction = getParentFragmentManager().beginTransaction();
+        transaction.replace(R.id.fragment_container, exerciseSelectionFragment); // Stelle sicher, dass `fragment_container` das ID deines Fragment-Containers ist
+        transaction.addToBackStack(null); // Ermöglicht das Zurückgehen mit der Zurück-Taste
+        transaction.commit();
     }
 
-    @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                             Bundle savedInstanceState) {
-        // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_hinzufuegen, container, false);
-    }
 }

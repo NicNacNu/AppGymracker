@@ -1,0 +1,25 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp"
+    android:background="@color/white"
+    android:textColor= "@color/black">
+
+    <Spinner
+        android:id="@+id/spinnerExercises"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="25dp"
+        android:textColor="@color/black"
+        />
+
+    <Button
+        android:id="@+id/buttonDeleteExercise"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Übung löschen"
+        android:layout_marginTop="3dp"
+        android:textColor="@color/white"
+        />
+</LinearLayout>
